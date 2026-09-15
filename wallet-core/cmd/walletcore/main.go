@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com.br/lucas-negrello/fc-ms-wallet/internal/database"
 	"github.com.br/lucas-negrello/fc-ms-wallet/internal/event"
@@ -21,15 +22,23 @@ import (
 import _ "github.com/go-sql-driver/mysql"
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(mysql:3306)/wallet?charset=utf8&parseTime=True&loc=Local")
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local",
+		getEnv("MYSQL_USER", "root"),
+		getEnv("MYSQL_PASSWORD", "root"),
+		getEnv("MYSQL_HOST", "wallet-mysql"),
+		getEnv("MYSQL_PORT", "3306"),
+		getEnv("MYSQL_DATABASE", "wallet"),
+	)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
 
 	configMap := ckafka.ConfigMap{
-		"bootstrap.servers": "kafka:29092",
-		"group.id":          "wallet",
+		"bootstrap.servers": getEnv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092"),
+		"group.id":          getEnv("KAFKA_GROUP_ID", "wallet"),
 	}
 
 	kafkaProducer := kafka.NewKafkaProducer(&configMap)
@@ -58,7 +67,7 @@ func main() {
 	createAccountUseCase := create_account.NewCreateAccountUseCase(accountDb, clientDb)
 	createTransactionUseCase := create_transaction.NewCreateTransactionUseCase(uow, eventDispatcher, transactionCreatedEvent, balanceUpdatedEvent)
 
-	webserver := webserver2.NewWebServer(":8080")
+	webserver := webserver2.NewWebServer(getEnv("WEB_SERVER_PORT", ":8080"))
 	clientHandler := web.NewWebClientHandler(*createClientUseCase)
 	accountHandler := web.NewAccountHandler(*createAccountUseCase)
 	transactionHandler := web.NewTransactionHandler(*createTransactionUseCase)
@@ -69,4 +78,11 @@ func main() {
 
 	fmt.Print("Server running on port 8080")
 	webserver.Start()
+}
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }

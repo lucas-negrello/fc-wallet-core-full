@@ -1,0 +1,72 @@
+@walletCore = http://localhost:8080
+@balances   = http://localhost:3003
+
+@accountJohn = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+@accountJane = bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+
+###############################################################################
+# ROTEIRO PRINCIPAL — o fluxo de eventos em 3 chamadas
+###############################################################################
+
+### 1. Saldo do John ANTES da transação
+GET {{balances}}/balances/{{accountJohn}}
+
+### 2. Transferência de 50 do John para a Jane
+POST {{walletCore}}/transactions
+Content-Type: application/json
+
+{
+  "account_id_from": "{{accountJohn}}",
+  "account_id_to": "{{accountJane}}",
+  "amount": 50
+}
+
+### 3a. Saldo do John DEPOIS (repita a chamada 1)
+GET {{balances}}/balances/{{accountJohn}}
+
+### 3b. Saldo da Jane, que recebeu o valor
+GET {{balances}}/balances/{{accountJane}}
+
+###############################################################################
+# BALANCES — demais rotas
+###############################################################################
+
+### Histórico de transações da conta do John
+GET {{balances}}/balances/{{accountJohn}}/transactions
+
+### Histórico de transações da conta da Jane
+GET {{balances}}/balances/{{accountJane}}/transactions
+
+### Conta inexistente — deve responder 404 com JSON
+GET {{balances}}/balances/conta-que-nao-existe
+
+### Health check da aplicação
+GET {{balances}}/up
+
+###############################################################################
+# WALLET CORE — criar dados novos
+###############################################################################
+
+### Criar um cliente
+POST {{walletCore}}/clients
+Content-Type: application/json
+
+{
+  "name": "Maria Silva",
+  "email": "maria@wallet.com"
+}
+
+### Criar uma conta para o cliente
+# Troque o client_id pelo "id" devolvido na chamada anterior
+POST {{walletCore}}/accounts
+Content-Type: application/json
+
+{
+  "client_id": "COLE-AQUI-O-ID-DO-CLIENTE"
+}
+
+### Saldo da conta nova no Balances
+# Contas novas nascem com saldo 0 e só aparecem aqui depois da primeira
+# transação, quando o primeiro evento BalanceUpdated é publicado.
+GET {{balances}}/balances/COLE-AQUI-O-ID-DA-CONTA
+

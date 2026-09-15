@@ -1,0 +1,10 @@
+.git
+.gitignore
+vendor
+node_modules
+.env
+tests
+storage/logs/*.log
+.phpunit.result.cache
+Dockerfile
+.dockerignore
